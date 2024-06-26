@@ -5,21 +5,19 @@ import de.hpi.dbs1.entities.Actor;
 import de.hpi.dbs1.entities.Movie;
 import org.jetbrains.annotations.NotNull;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.sql.*;
+import java.util.*;
 import java.util.logging.Logger;
 
-@ChosenImplementation(false)
+@ChosenImplementation(true)
 public class JDBCExerciseJavaImplementation implements JDBCExercise {
 
 	Logger logger = Logger.getLogger(this.getClass().getSimpleName());
 
 	@Override
 	public Connection createConnection(@NotNull ConnectionConfig config) throws SQLException {
-		throw new UnsupportedOperationException("Not yet implemented");
+		String url = "jdbc:postgresql://" + config.getHost() + ":" + config.getPort() + "/" + config.getDatabase();
+		return DriverManager.getConnection(url, config.getUsername(), config.getPassword());
 	}
 
 	@Override
@@ -29,14 +27,20 @@ public class JDBCExerciseJavaImplementation implements JDBCExercise {
 	) throws SQLException {
 		logger.info(keywords);
 		List<Movie> movies = new ArrayList<>();
-
-		/*
-		var myMovie = new Movie("??????????", "My Movie", 2023, Set.of("Indie"));
-		myMovie.actorNames.add("Myself");
-		movies.add(myMovie);
-		*/
-
-		throw new UnsupportedOperationException("Not yet implemented");
+		PreparedStatement movies_statement = connection.prepareStatement("SELECT * FROM tmovies WHERE \"primaryTitle\" LIKE ? ORDER BY \"primaryTitle\", \"startYear\"");
+		PreparedStatement actors_stament = connection.prepareStatement("SELECT primaryname FROM tprincipals NATURAL JOIN nbasics WHERE tconst = ? AND (category='actor' OR category='actress') ORDER BY primaryname");
+		movies_statement.setString(1, "%" + keywords + "%");
+		ResultSet movie_results = movies_statement.executeQuery();
+		while (movie_results.next()) {
+			Movie movie = new Movie(movie_results.getString("tconst"), movie_results.getString("primaryTitle"), movie_results.getInt("startYear"), Set.of((String[]) movie_results.getArray("genres").getArray()));
+			actors_stament.setString(1, movie_results.getString("tconst"));
+			ResultSet actor_results = actors_stament.executeQuery();
+			while (actor_results.next()) {
+				movie.actorNames.add(actor_results.getString("primaryName"));
+			}
+			movies.add(movie);
+		}
+		return movies;
 	}
 
 	@Override
